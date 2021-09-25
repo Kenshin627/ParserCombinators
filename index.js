@@ -150,15 +150,15 @@ const sequenceOf = (parsers) =>
 
 /**
  * choice
- * @param {Parser[]} parsers 
- * @returns 
+ * @param {Parser[]} parsers
+ * @returns
  */
 const choice = (parsers) =>
   new Parser((parserState) => {
     checkState(parserState);
     let nextParserState = parserState;
     for (const parser of parsers) {
-      nextParserState = parser.parserStateTransformFn(nextParserState);
+      nextParserState = parser.parserStateTransformFn(parserState);
       if (!nextParserState.isError) {
         return nextParserState;
       }
@@ -169,18 +169,65 @@ const choice = (parsers) =>
     );
   });
 
+/**
+ * many
+ * @param {Parser} parser
+ * @returns
+ */
+const many = (parser) =>
+  new Parser((parserState) => {
+    checkState(parserState);
+    let nextParserState = parserState;
+    let done = false;
+    let result = [];
+    while (!done) {
+      let testState = parser.parserStateTransformFn(nextParserState);
+      if (testState.isError) {
+        done = true;
+      } else {
+        nextParserState = testState;
+        result.push(nextParserState.result);
+      }
+    }
+    return updateStateResult(nextParserState, result);
+  });
+
+/**
+ * many1
+ * @param {Parser} parser
+ * @returns
+ */
+const many1 = (parser) =>
+  new Parser((parserState) => {
+    checkState(parserState);
+    let nextParserState = parserState;
+    let done = false;
+    let result = [];
+    while (!done) {
+      nextParserState = parser.parserStateTransformFn(nextParserState);
+      if (nextParserState.isError) {
+        done = true;
+      } else {
+        result.push(nextParserState.result);
+      }
+    }
+    if (result.length === 0) {
+      updateStateError(parserState, `at least one must be matched,found none!`);
+    } else {
+      updateStateResult(parserState, result);
+    }
+  });
 
 /**test */
-const testString = "123123123";
-const sq = sequenceOf([letters, digits, letters]);
-let res = sq.run(testString);
-console.log(res);
+// const testString = "123123123";
+// const sq = sequenceOf([letters, digits, letters]);
+// let res = sq.run(testString);
+// console.log(res);
 
 // const parser = startWith("helloworld")
 //   .map((result) => ({ value: result.toUpperCase() }))
 //   .errorMap((error, index) => `Expected a greeting @ index ${index}`);
 // console.log(parser.run("123"));
 
-const choice = null;
-
-const many = null;
+let res = choice([letters, digits]).run("123asdasd");
+console.log(res);
