@@ -59,6 +59,22 @@ class Parser {
       }
     });
   }
+
+  /**
+   * chain
+   * @param {Function} fn
+   * @returns
+   */
+  chain(fn) {
+    return new Parser((parserState) => {
+      let nextState = this.parserStateTransformFn(parserState);
+      if (nextState.isError) {
+        return nextState;
+      }
+      const nextParser = fn(nextState.result);
+      return nextParser.parserStateTransformFn(nextState);
+    });
+  }
 }
 
 const checkState = (parserState) => {
@@ -72,7 +88,7 @@ const checkState = (parserState) => {
   }
 };
 
-const startWith = (s) =>
+const str = (s) =>
   new Parser((parserState) => {
     checkState(parserState);
     let { target, index } = parserState;
@@ -101,7 +117,7 @@ const letters = new Parser((parserState) => {
   let regexMatch = sliceTarget.match(lettersRegex);
   if (regexMatch) {
     return updatestateIndex(
-      updateStateResult(parserState, `letters: ${regexMatch[0]}`),
+      updateStateResult(parserState, regexMatch[0]),
       index + regexMatch[0].length
     );
   } else {
@@ -119,7 +135,7 @@ const digits = new Parser((parserState) => {
   let regexMatch = sliceTarget.match(digitsRegex);
   if (regexMatch) {
     return updatestateIndex(
-      updateStateResult(parserState, `digits: ${regexMatch[0]}`),
+      updateStateResult(parserState, regexMatch[0]),
       index + regexMatch[0].length
     );
   } else {
@@ -218,16 +234,77 @@ const many1 = (parser) =>
     }
   });
 
-/**test */
-// const testString = "123123123";
-// const sq = sequenceOf([letters, digits, letters]);
-// let res = sq.run(testString);
-// console.log(res);
+const between = (leftParser, rightParser) => (contentParser) =>
+  sequenceOf([leftParser, contentParser, rightParser]).map(
+    (results) => results[1]
+  );
 
-// const parser = startWith("helloworld")
-//   .map((result) => ({ value: result.toUpperCase() }))
-//   .errorMap((error, index) => `Expected a greeting @ index ${index}`);
-// console.log(parser.run("123"));
+const sepBy = (seperatorPaser) => (contentParser) =>
+  new Parser((parserState) => {
+    if (parserState.isError) {
+      return parserState;
+    }
+    let results = [];
+    let nextParserState = parserState;
+    while (true) {
+      let contentParserState =
+        contentParser.parserStateTransformFn(nextParserState);
+      if (contentParserState.isError) {
+        break;
+      } else {
+        results.push(contentParserState.result);
+        nextParserState = contentParserState;
+      }
+      let sepNextParserState =
+        seperatorPaser.parserStateTransformFn(nextParserState);
+      if (sepNextParserState.isError) {
+        break;
+      } else {
+        nextParserState = sepNextParserState;
+      }
+    }
+    return updateStateResult(nextParserState, results);
+  });
 
-let res = choice([letters, digits]).run("123asdasd");
-console.log(res);
+const sepBy1 = (seperatorPaser) => (contentParser) =>
+  new Parser((parserState) => {
+    let results = [];
+    let nextParserState = parserState;
+    while (true) {
+      let nextContentParserState =
+        contentParser.parserStateTransformFn(nextParserState);
+      if (nextContentParserState.isError) {
+        break;
+      }
+      results.push(nextContentParserState.result);
+      nextParserState = nextContentParserState;
+      let nextSepParserState = seperatorPaser.parserStateTransformFn(
+        nextContentParserState
+      );
+      if (nextSepParserState.isError) {
+        break;
+      }
+      nextParserState = nextSepParserState;
+    }
+    return updateStateResult(nextParserState, results);
+  });
+
+const lazy = (thunkParser) =>
+  new Parser((parserState) => {
+    const parser = thunkParser();
+    return parser.parserStateTransformFn(parserState);
+  });
+
+module.exports = {
+  str,
+  letters,
+  digits,
+  sequenceOf,
+  choice,
+  many,
+  many1,
+  sepBy,
+  sepBy1,
+  between,
+  lazy,
+};
