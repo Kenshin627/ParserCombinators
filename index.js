@@ -82,10 +82,10 @@ const checkState = (parserState) => {
   if (isError) {
     return parserState;
   }
-  let sliceTarget = target.slice(index);
-  if (!sliceTarget) {
-    return updateStateError(parserState, `target length limit @index ${index}`);
-  }
+  // let sliceTarget = target.slice(index);
+  // if (!sliceTarget) {
+  //   return updateStateError(parserState, `target length limit @index ${index}`);
+  // }
 };
 
 const str = (s) =>
@@ -155,11 +155,14 @@ const sequenceOf = (parsers) =>
     let nextParserState = parserState;
     for (const parser of parsers) {
       nextParserState = parser.parserStateTransformFn(nextParserState);
-      if (nextParserState.isError) {
-        return nextParserState;
-      } else {
-        result.push(nextParserState.result);
-      }
+      // if (nextParserState.isError) {
+      //   return nextParserState;
+      // } else {
+      result.push(nextParserState.result);
+      // }
+    }
+    if (nextParserState.isError) {
+      return nextParserState;
     }
     return updateStateResult(nextParserState, result);
   });
@@ -268,6 +271,9 @@ const sepBy = (seperatorPaser) => (contentParser) =>
 
 const sepBy1 = (seperatorPaser) => (contentParser) =>
   new Parser((parserState) => {
+    if (parserState.isError) {
+      return parserState;
+    }
     let results = [];
     let nextParserState = parserState;
     while (true) {
@@ -307,4 +313,10 @@ module.exports = {
   sepBy1,
   between,
   lazy,
+
+  Parser,
+
+  updateStateError,
+  updateStateResult,
+  updatestateIndex,
 };
